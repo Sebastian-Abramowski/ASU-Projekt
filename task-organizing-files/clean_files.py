@@ -223,13 +223,34 @@ def get_user_input():
 
         print("Invalid input. Please enter your choice again. ")
 
-def move_files_to_main_dir(main_dir, directories):
-    files_from_not_main_dir = get_all_files(directories)
 
-    for file_path in files_from_not_main_dir:
-        destination_path = os.path.join(main_dir, os.path.basename(file_path))
-        shutil.move(file_path, destination_path)
-        print(f"Moved file {file_path} to {destination_path}")
+def move_files_to_main_dir(main_dir, directories):
+    for directory in directories:
+        for dir_path, _, files in os.walk(directory):
+            for file in files:
+                source_path = os.path.join(dir_path, file)
+                relative_path = os.path.relpath(source_path, directory)
+
+                destination_path = os.path.join(main_dir, relative_path)
+                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+
+                shutil.move(source_path, destination_path)
+                print(f"Moved file from: {source_path} to: {destination_path}")
+
+
+def copy_files_to_main_dir(main_dir, directories):
+    for directory in directories:
+        for dir_path, _, files in os.walk(directory):
+            for file in files:
+                source_path = os.path.join(dir_path, file)
+                relative_path = os.path.relpath(source_path, directory)
+
+                destination_path = os.path.join(main_dir, relative_path)
+                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+
+                shutil.copy2(source_path, destination_path)
+                print(f"Copied file from: {source_path} to: {destination_path}")
+
 
 def parse_arguments():
     parser = ArgumentParser(description="Clean files from given directories")
@@ -245,8 +266,8 @@ def parse_arguments():
     parser.add_argument("--repeated-names", action="store_true", help="Search for files with repeated names and suggest renaming them")
     parser.add_argument("--find-duplicate-content", action="store_true", help="Search for file with duplicate content and suggest deleting some of them")
 
+    parser.add_argument("--copy-files-to-main-dir", action="store_true", help="Copy all files to main directory")
     parser.add_argument("--move-files-to-main-dir", action="store_true", help="Move all files to main directory")
-
 
     return parser.parse_args()
 
@@ -284,3 +305,6 @@ if __name__ == "__main__":
 
     if (args.move_files_to_main_dir):
         move_files_to_main_dir(args.main_dir, args.directories)
+
+    if (args.copy_files_to_main_dir):
+        copy_files_to_main_dir(args.main_dir, args.directories)
