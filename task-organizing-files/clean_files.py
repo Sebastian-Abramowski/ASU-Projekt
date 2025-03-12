@@ -4,6 +4,7 @@ import stat
 from argparse import ArgumentParser
 from collections import defaultdict
 from hashlib import md5
+import shutil
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
@@ -20,11 +21,9 @@ def load_config(filepath):
         print(f"Configuration file was not found at {filepath}. Using default configuration.")
         return DEFAULT_CONFIG
 
-def get_all_files(main_dir, directories):
+def get_all_files(directories):
     all_files = []
-    all_directories = [main_dir, *directories]
-
-    for dir in all_directories:
+    for dir in directories:
         for dir_path, _, files in os.walk(dir):
             for file in files:
                 file_path = os.path.join(dir_path, file)
@@ -33,15 +32,15 @@ def get_all_files(main_dir, directories):
     return all_files
 
 def find_temporary_files(main_dir, directories, tmp_extensions):
-    files = get_all_files(main_dir, directories)
+    files = get_all_files([main_dir, *directories])
     return [file for file in files if any(file.endswith(tmp_extension) for tmp_extension in tmp_extensions)]
 
 def find_empty_files(main_dir, directories):
-    all_files = get_all_files(main_dir, directories)
+    all_files = get_all_files([main_dir, *directories])
     return [file for file in all_files if os.path.getsize(file) == 0]
 
 def find_files_with_problematic_names(main_dir, directories, problematic_characters):
-    all_files = get_all_files(main_dir, directories)
+    all_files = get_all_files([main_dir, *directories])
     return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
 
 def get_file_hash(file_path):
@@ -49,7 +48,7 @@ def get_file_hash(file_path):
         return md5(f.read()).hexdigest()
 
 def handle_files_with_duplicate_content(main_dir, directories):
-    all_files = get_all_files(main_dir, directories)
+    all_files = get_all_files([main_dir, *directories])
     files_content_dict = defaultdict(list)
 
     for file_path in all_files:
@@ -78,7 +77,7 @@ def handle_files_with_duplicate_content(main_dir, directories):
             print(f"Deleted: {filepath})")
 
 def handle_files_with_repeated_names(main_dir, directories):
-    all_files = get_all_files(main_dir, directories)
+    all_files = get_all_files([main_dir, *directories])
     files_dict = defaultdict(list)
 
     for file_path in all_files:
@@ -138,7 +137,7 @@ def handle_files_with_unusual_attributes(main_dir, directories, suggested_permis
 
 
     choice = None
-    all_files = get_all_files(main_dir, directories)
+    all_files = get_all_files([main_dir, *directories])
 
     for file in all_files:
         file_stat = os.stat(file)
@@ -224,6 +223,13 @@ def get_user_input():
 
         print("Invalid input. Please enter your choice again. ")
 
+def move_files_to_main_dir(main_dir, directories):
+    files_from_not_main_dir = get_all_files(directories)
+
+    for file_path in files_from_not_main_dir:
+        destination_path = os.path.join(main_dir, os.path.basename(file_path))
+        shutil.move(file_path, destination_path)
+        print(f"Moved file {file_path} to {destination_path}")
 
 def parse_arguments():
     parser = ArgumentParser(description="Clean files from given directories")
@@ -238,6 +244,8 @@ def parse_arguments():
     parser.add_argument("--unusual-attributes", action="store_true", help="Search for files with unusual attributes and suggest changing them")
     parser.add_argument("--repeated-names", action="store_true", help="Search for files with repeated names and suggest renaming them")
     parser.add_argument("--find-duplicate-content", action="store_true", help="Search for file with duplicate content and suggest deleting some of them")
+
+    parser.add_argument("--move-files-to-main-dir", action="store_true", help="Move all files to main directory")
 
 
     return parser.parse_args()
@@ -274,3 +282,5 @@ if __name__ == "__main__":
     if (args.find_duplicate_content):
         handle_files_with_duplicate_content(args.main_dir, args.directories)
 
+    if (args.move_files_to_main_dir):
+        move_files_to_main_dir(args.main_dir, args.directories)
