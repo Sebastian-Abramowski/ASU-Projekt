@@ -3,6 +3,7 @@ import os
 import stat
 from argparse import ArgumentParser
 from collections import defaultdict
+from hashlib import md5
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
@@ -43,6 +44,39 @@ def find_files_with_problematic_names(main_dir, directories, problematic_charact
     all_files = get_all_files(main_dir, directories)
     return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
 
+def get_file_hash(file_path):
+    with open(file_path, "rb") as f:
+        return md5(f.read()).hexdigest()
+
+def handle_files_with_duplicate_content(main_dir, directories):
+    all_files = get_all_files(main_dir, directories)
+    files_content_dict = defaultdict(list)
+
+    for file_path in all_files:
+        file_hash = get_file_hash(file_path)
+        files_content_dict[file_hash].append(file_path)
+
+    for file_hash, paths in files_content_dict.items():
+        if len(paths) <= 1:
+            continue
+
+        paths.sort(key=os.path.getmtime)
+
+        print(f"Files with duplicate content (hash: {file_hash}), from oldest to latest:")
+        for num, path in enumerate(paths, start=1):
+            print(f"{num}. {path} ", "(OLDEST)" if num == 1 else "")
+
+        index_of_file_to_keep = choose_file_to_keep(len(paths))
+
+        if index_of_file_to_keep is None:
+            print(f"Keeping all files with hash {file_hash}")
+            continue
+
+        files_to_delete = [path for index, path in enumerate(paths) if index != index_of_file_to_keep]
+        for filepath in files_to_delete:
+            os.remove(filepath)
+            print(f"Deleted: {filepath})")
+
 def handle_files_with_repeated_names(main_dir, directories):
     all_files = get_all_files(main_dir, directories)
     files_dict = defaultdict(list)
@@ -57,11 +91,11 @@ def handle_files_with_repeated_names(main_dir, directories):
 
         paths.sort(key=os.path.getmtime, reverse=True)
 
-        print(f"Repeated files with name: {filename}")
+        print(f"Repeated files with name (from latest to oldest): {filename}")
         for num, path in enumerate(paths, start=1):
             print(f"{num}. {path} ", "(LATEST)" if num == 1 else "")
 
-        index_of_file_to_keep = select_file_to_keep(len(paths))
+        index_of_file_to_keep = choose_file_to_keep(len(paths))
 
         if index_of_file_to_keep is None:
             print(f"Keeping all files with name {filename}")
@@ -73,10 +107,10 @@ def handle_files_with_repeated_names(main_dir, directories):
             os.remove(filepath)
             print(f"Deleted: {filepath}")
 
-def select_file_to_keep(number_of_files):
+def choose_file_to_keep(number_of_files):
     valid_choices = [str(i) for i in range(1, number_of_files + 1)]
     while True:
-        user_input = input(f"Enter number of the file to keep [1-{number_of_files}] or press Enter to keep all: ").strip()
+        user_input = input(f"Enter number of the file to keep [1-{number_of_files}] (rest of the files will be deleted) or press Enter to keep all: ").strip()
 
         if not user_input:
             return None
@@ -203,6 +237,7 @@ def parse_arguments():
     parser.add_argument("--problematic-characters", action="store_true", help="Search for files with problematic characters and suggest renaming them")
     parser.add_argument("--unusual-attributes", action="store_true", help="Search for files with unusual attributes and suggest changing them")
     parser.add_argument("--repeated-names", action="store_true", help="Search for files with repeated names and suggest renaming them")
+    parser.add_argument("--find-duplicate-content", action="store_true", help="Search for file with duplicate content and suggest deleting some of them")
 
 
     return parser.parse_args()
@@ -236,8 +271,6 @@ if __name__ == "__main__":
     if (args.repeated_names):
         handle_files_with_repeated_names(args.main_dir, args.directories)
 
-
-
-
-
+    if (args.find_duplicate_content):
+        handle_files_with_duplicate_content(args.main_dir, args.directories)
 
