@@ -9,7 +9,7 @@ import sys
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
-    'problematic_characters': [';', "'", ',', '*', '?', '*', '#', '`', '|'],
+    'problematic_characters': ["'", ",", "*", "#", "@", ":", "$", "?"],
     'replacement_character': '_',
     'temporary_file_extensions': ['.tmp', '.log']
 }
@@ -238,10 +238,7 @@ def transfer_files_to_main_dir(main_dir, directories, transfer_func):
         for dir_path, _, files in os.walk(directory):
             for file in files:
                 source_path = os.path.join(dir_path, file)
-                relative_path = os.path.relpath(source_path, directory)
-
-                destination_path = os.path.join(main_dir, relative_path)
-                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
+                destination_path = os.path.join(main_dir, file)
 
                 transfer_func(source_path, destination_path)
                 print(f"{action_performed} file from: {source_path} to: {destination_path}")
