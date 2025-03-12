@@ -2,6 +2,7 @@ import json
 import os
 import stat
 from argparse import ArgumentParser
+from collections import defaultdict
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
@@ -41,6 +42,49 @@ def find_empty_files(main_dir, directories):
 def find_files_with_problematic_names(main_dir, directories, problematic_characters):
     all_files = get_all_files(main_dir, directories)
     return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
+
+def handle_files_with_repeated_names(main_dir, directories):
+    all_files = get_all_files(main_dir, directories)
+    files_dict = defaultdict(list)
+
+    for file_path in all_files:
+        filename = os.path.basename(file_path)
+        files_dict[filename].append(file_path)
+
+    for filename, paths in files_dict.items():
+        if len(paths) <= 1:
+            continue
+
+        paths.sort(key=os.path.getmtime, reverse=True)
+
+        print(f"Repeated files with name: {filename}")
+        for num, path in enumerate(paths, start=1):
+            print(f"{num}. {path} ", "(LATEST)" if num == 1 else "")
+
+        index_of_file_to_keep = select_file_to_keep(len(paths))
+
+        if index_of_file_to_keep is None:
+            print(f"Keeping all files with name {filename}")
+            continue
+
+        print(f"Deleting all files with repeated names except {paths[index_of_file_to_keep]}")
+        files_to_delete = [path for index, path in enumerate(paths) if index != index_of_file_to_keep]
+        for filepath in files_to_delete:
+            os.remove(filepath)
+            print(f"Deleted: {filepath}")
+
+def select_file_to_keep(number_of_files):
+    valid_choices = [str(i) for i in range(1, number_of_files + 1)]
+    while True:
+        user_input = input(f"Enter number of the file to keep [1-{number_of_files}] or press Enter to keep all: ").strip()
+
+        if not user_input:
+            return None
+
+        if user_input in valid_choices:
+            return int(user_input) - 1
+
+        print("Invalid input. Please enter your choice again. ")
 
 def convert_str_permissions_to_octal(permissions):
     permission_map = {
@@ -157,7 +201,9 @@ def parse_arguments():
     parser.add_argument("--empty", action="store_true", help="Search for empty files and suggest deleting them")
     parser.add_argument("--temporary", action="store_true", help="Search for temporary files and suggest deleting them")
     parser.add_argument("--problematic-characters", action="store_true", help="Search for files with problematic characters and suggest renaming them")
-    parser.add_argument("--unusual_attributes", action="store_true", help="Search for files with unusual attributes and suggest changing them")
+    parser.add_argument("--unusual-attributes", action="store_true", help="Search for files with unusual attributes and suggest changing them")
+    parser.add_argument("--repeated-names", action="store_true", help="Search for files with repeated names and suggest renaming them")
+
 
     return parser.parse_args()
 
@@ -186,6 +232,9 @@ if __name__ == "__main__":
 
     if (args.unusual_attributes):
         handle_files_with_unusual_attributes(args.main_dir, args.directories, config['suggested_file_permissions'])
+
+    if (args.repeated_names):
+        handle_files_with_repeated_names(args.main_dir, args.directories)
 
 
 
