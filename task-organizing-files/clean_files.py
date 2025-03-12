@@ -272,7 +272,7 @@ if __name__ == "__main__":
 
     print(f"Main directory set to: {args.main_dir}")
     print(f"Additional directories are set to: {args.directories}\n")
-    print("----------------------------------------")
+    print("=" * 25)
 
     if (config['suggested_file_permissions'] and len(config['suggested_file_permissions']) != 9):
         print("Invalid permissions format. Please provide permissions in 9 characters format (e.g. rw-r--r--). Exiting.")
