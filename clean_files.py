@@ -201,7 +201,7 @@ def ask_before_renaming(problematic_files, problematic_characters, replacement_c
             print(f"Renamed: {file_path} -> {new_path} (always yes mode)")
             continue
 
-        print(f"\nProblematic file found at: {file_path}. Suggest new name is: {new_filename} Do you want to change it? ", end="")
+        print(f"Problematic file found at: {file_path}. Suggest new name is: {new_filename} Do you want to change it? ", end="")
         choice = get_user_input()
 
         if choice == YES or choice == ALWAYS_YES:
@@ -281,26 +281,35 @@ if __name__ == "__main__":
     if args.empty:
         empty_files = find_empty_files(args.main_dir, args.directories)
         ask_before_deleting(empty_files, "empty file")
+        print("=" * 25)
 
     if args.temporary:
         temporary_files = find_temporary_files(args.main_dir, args.directories, config['temporary_file_extensions'])
         ask_before_deleting(temporary_files, "temporary file")
+        print("=" * 25)
 
     if args.problematic_characters:
         problematic_files = find_files_with_problematic_names(args.main_dir, args.directories, config['problematic_characters'])
         ask_before_renaming(problematic_files, config['problematic_characters'], config['replacement_character'])
+        print("=" * 25)
 
     if args.unusual_attributes:
         handle_files_with_unusual_attributes(args.main_dir, args.directories, config['suggested_file_permissions'])
+        print("=" * 25)
 
     if args.repeated_names:
         handle_files_with_repeated_names(args.main_dir, args.directories)
+        print("=" * 25)
 
     if args.find_duplicate_content:
         handle_files_with_duplicate_content(args.main_dir, args.directories)
+        print("=" * 25)
 
     if args.move_files_to_main_dir:
         transfer_files_to_main_dir(args.main_dir, args.directories, shutil.move)
+        print("=" * 25)
 
     if args.copy_files_to_main_dir:
         transfer_files_to_main_dir(args.main_dir, args.directories, shutil.copy2)
+        print("=" * 25)
+
