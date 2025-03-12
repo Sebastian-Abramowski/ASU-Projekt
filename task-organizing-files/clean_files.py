@@ -5,6 +5,7 @@ from argparse import ArgumentParser
 from collections import defaultdict
 from hashlib import md5
 import shutil
+import sys
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
@@ -12,6 +13,11 @@ DEFAULT_CONFIG = {
     'replacement_character': '_',
     'temporary_file_extensions': ['.tmp', '.log']
 }
+
+YES = 'y'
+NO = 'n'
+ALWAYS_YES = 'ay'
+ALWAYS_NO = 'an'
 
 def load_config(filepath):
     try:
@@ -21,37 +27,39 @@ def load_config(filepath):
         print(f"Configuration file was not found at {filepath}. Using default configuration.")
         return DEFAULT_CONFIG
 
-def get_all_files(directories):
-    all_files = []
+
+def yield_all_files(directories):
     for dir in directories:
         for dir_path, _, files in os.walk(dir):
             for file in files:
-                file_path = os.path.join(dir_path, file)
-                all_files.append(file_path)
+                yield os.path.join(dir_path, file)
 
-    return all_files
+
+def find_files(main_dir, directories, condition_func):
+    return [file for file in yield_all_files([main_dir, *directories]) if condition_func(file)]
+
 
 def find_temporary_files(main_dir, directories, tmp_extensions):
-    files = get_all_files([main_dir, *directories])
-    return [file for file in files if any(file.endswith(tmp_extension) for tmp_extension in tmp_extensions)]
+    return find_files(main_dir, directories, lambda file: any(file.endswith(tmp_extension) for tmp_extension in tmp_extensions))
+
 
 def find_empty_files(main_dir, directories):
-    all_files = get_all_files([main_dir, *directories])
-    return [file for file in all_files if os.path.getsize(file) == 0]
+    return find_files(main_dir, directories, lambda file: os.path.getsize(file) == 0)
+
 
 def find_files_with_problematic_names(main_dir, directories, problematic_characters):
-    all_files = get_all_files([main_dir, *directories])
-    return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
+    return find_files(main_dir, directories, lambda file: any(character in os.path.basename(file) for character in problematic_characters))
+
 
 def get_file_hash(file_path):
     with open(file_path, "rb") as f:
         return md5(f.read()).hexdigest()
 
-def handle_files_with_duplicate_content(main_dir, directories):
-    all_files = get_all_files([main_dir, *directories])
+
+def handle_files_with_duplicate_content(main_dir, directories) -> None:
     files_content_dict = defaultdict(list)
 
-    for file_path in all_files:
+    for file_path in yield_all_files([main_dir, *directories]):
         file_hash = get_file_hash(file_path)
         files_content_dict[file_hash].append(file_path)
 
@@ -65,22 +73,22 @@ def handle_files_with_duplicate_content(main_dir, directories):
         for num, path in enumerate(paths, start=1):
             print(f"{num}. {path} ", "(OLDEST)" if num == 1 else "")
 
-        index_of_file_to_keep = choose_file_to_keep(len(paths))
-
-        if index_of_file_to_keep is None:
+        num_of_file_to_keep = choose_number_of_file_to_keep(len(paths))
+        if num_of_file_to_keep is None:
             print(f"Keeping all files with hash {file_hash}")
             continue
 
+        index_of_file_to_keep = num_of_file_to_keep - 1
         files_to_delete = [path for index, path in enumerate(paths) if index != index_of_file_to_keep]
         for filepath in files_to_delete:
             os.remove(filepath)
             print(f"Deleted: {filepath})")
 
+
 def handle_files_with_repeated_names(main_dir, directories):
-    all_files = get_all_files([main_dir, *directories])
     files_dict = defaultdict(list)
 
-    for file_path in all_files:
+    for file_path in yield_all_files([main_dir, *directories]):
         filename = os.path.basename(file_path)
         files_dict[filename].append(file_path)
 
@@ -94,19 +102,19 @@ def handle_files_with_repeated_names(main_dir, directories):
         for num, path in enumerate(paths, start=1):
             print(f"{num}. {path} ", "(LATEST)" if num == 1 else "")
 
-        index_of_file_to_keep = choose_file_to_keep(len(paths))
-
-        if index_of_file_to_keep is None:
+        num_of_file_to_keep = choose_number_of_file_to_keep(len(paths))
+        if num_of_file_to_keep is None:
             print(f"Keeping all files with name {filename}")
             continue
 
-        print(f"Deleting all files with repeated names except {paths[index_of_file_to_keep]}")
+        index_of_file_to_keep = num_of_file_to_keep - 1
         files_to_delete = [path for index, path in enumerate(paths) if index != index_of_file_to_keep]
         for filepath in files_to_delete:
             os.remove(filepath)
             print(f"Deleted: {filepath}")
 
-def choose_file_to_keep(number_of_files):
+
+def choose_number_of_file_to_keep(number_of_files):
     valid_choices = [str(i) for i in range(1, number_of_files + 1)]
     while True:
         user_input = input(f"Enter number of the file to keep [1-{number_of_files}] (rest of the files will be deleted) or press Enter to keep all: ").strip()
@@ -115,9 +123,10 @@ def choose_file_to_keep(number_of_files):
             return None
 
         if user_input in valid_choices:
-            return int(user_input) - 1
+            return int(user_input)
 
         print("Invalid input. Please enter your choice again. ")
+
 
 def convert_str_permissions_to_octal(permissions):
     permission_map = {
@@ -135,51 +144,44 @@ def convert_str_permissions_to_octal(permissions):
 def handle_files_with_unusual_attributes(main_dir, directories, suggested_permissions):
     octal_suggested_permissions = convert_str_permissions_to_octal(suggested_permissions)
 
-
     choice = None
-    all_files = get_all_files([main_dir, *directories])
-
-    for file in all_files:
+    for file in yield_all_files([main_dir, *directories]):
         file_stat = os.stat(file)
         file_permissions = stat.filemode(file_stat.st_mode)[1:]
 
         if (file_permissions != suggested_permissions):
             print(f"File {file} has unusual permissions: {file_permissions}. Suggested permissions are {suggested_permissions}. Do you want to change them? ", end="")
 
-            if choice == 'ay':
+            if choice == ALWAYS_YES:
                 os.chmod(file, octal_suggested_permissions)
                 print(f"Changed permissions for file {file} to {suggested_permissions} (always yes mode)")
                 continue
 
             choice = get_user_input()
-            if choice == 'y' or choice == 'ay':
+            if choice == YES or choice == ALWAYS_YES:
                 os.chmod(file, octal_suggested_permissions)
                 print(f"Changed permissions for file {file} to {suggested_permissions}")
 
-            if choice == 'an':
+            if choice == ALWAYS_NO:
                 print("Skipping all permission changes")
                 break
 
-def ask_before_deleting(empty_files, what_to_delete: str):
+def ask_before_deleting(empty_files, what_to_delete):
     choice = None
     for empty_file in empty_files:
-        if choice == 'ay':
+        if choice == ALWAYS_YES:
             os.remove(empty_file)
             print(f"Removing file {empty_file} (always yes mode)")
             continue
 
         print(f"{what_to_delete.capitalize()} was found at: {empty_file}. Do you want to remove it? ", end="")
 
-        if choice == 'ay':
-            os.remove(empty_file)
-            continue
-
         choice = get_user_input()
-        if choice == 'y' or choice == 'ay':
+        if choice == YES or choice == ALWAYS_YES:
             print(f"Removing file {empty_file}")
             os.remove(empty_file)
 
-        if choice == 'an':
+        if choice == ALWAYS_NO:
             print("Skipping all deletions")
             break
 
@@ -194,7 +196,7 @@ def ask_before_renaming(problematic_files, problematic_characters, replacement_c
             new_filename = new_filename.replace(char, replacement_character)
         new_path = os.path.join(directory, new_filename)
 
-        if choice == "ay":
+        if choice == ALWAYS_YES:
             os.rename(file_path, new_path)
             print(f"Renamed: {file_path} -> {new_path} (always yes mode)")
             continue
@@ -202,21 +204,22 @@ def ask_before_renaming(problematic_files, problematic_characters, replacement_c
         print(f"\nProblematic file found at: {file_path}. Suggest new name is: {new_filename} Do you want to change it? ", end="")
         choice = get_user_input()
 
-        if choice == "y" or choice == "ay":
+        if choice == YES or choice == ALWAYS_YES:
             os.rename(file_path, new_path)
             print(f"Renamed: {file_path} -> {new_path}")
 
-        if choice == "an":
+        if choice == ALWAYS_NO:
             print("Skipping all renaming")
             break
 
 def get_user_input():
-    accepted_values = ['y', 'n', 'ay', 'an']
+    accepted_values = [YES, NO,
+                       ALWAYS_YES, ALWAYS_NO]
     while True:
         user_input = input("[Y]/n/ay/an? ").lower()
 
         if not user_input:
-            return 'y'
+            return YES
 
         if user_input in accepted_values:
             return user_input
@@ -224,7 +227,13 @@ def get_user_input():
         print("Invalid input. Please enter your choice again. ")
 
 
-def move_files_to_main_dir(main_dir, directories):
+def transfer_files_to_main_dir(main_dir, directories, transfer_func):
+    action_names = {
+        shutil.move: "Moved",
+        shutil.copy2: "Copied"
+    }
+    action_performed = action_names.get(transfer_func, "Transferred")
+
     for directory in directories:
         for dir_path, _, files in os.walk(directory):
             for file in files:
@@ -234,23 +243,8 @@ def move_files_to_main_dir(main_dir, directories):
                 destination_path = os.path.join(main_dir, relative_path)
                 os.makedirs(os.path.dirname(destination_path), exist_ok=True)
 
-                shutil.move(source_path, destination_path)
-                print(f"Moved file from: {source_path} to: {destination_path}")
-
-
-def copy_files_to_main_dir(main_dir, directories):
-    for directory in directories:
-        for dir_path, _, files in os.walk(directory):
-            for file in files:
-                source_path = os.path.join(dir_path, file)
-                relative_path = os.path.relpath(source_path, directory)
-
-                destination_path = os.path.join(main_dir, relative_path)
-                os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-
-                shutil.copy2(source_path, destination_path)
-                print(f"Copied file from: {source_path} to: {destination_path}")
-
+                transfer_func(source_path, destination_path)
+                print(f"{action_performed} file from: {source_path} to: {destination_path}")
 
 def parse_arguments():
     parser = ArgumentParser(description="Clean files from given directories")
@@ -276,35 +270,37 @@ if __name__ == "__main__":
     args = parse_arguments()
     config = load_config(args.config)
 
-    print("Main directory: ", args.main_dir)
-    print("Directories: ", args.directories)
-    print("Configuration: ", config)
+    print(f"Main directory set to: {args.main_dir}")
+    print(f"Additional directories are set to: {args.directories}\n")
+    print("----------------------------------------")
 
-    # TODO: walidacja permissions 9 wyraozwego
+    if (config['suggested_file_permissions'] and len(config['suggested_file_permissions']) != 9):
+        print("Invalid permissions format. Please provide permissions in 9 characters format (e.g. rw-r--r--). Exiting.")
+        sys.exit(1)
 
-    if (args.empty):
+    if args.empty:
         empty_files = find_empty_files(args.main_dir, args.directories)
         ask_before_deleting(empty_files, "empty file")
 
-    if (args.temporary):
+    if args.temporary:
         temporary_files = find_temporary_files(args.main_dir, args.directories, config['temporary_file_extensions'])
         ask_before_deleting(temporary_files, "temporary file")
 
-    if (args.problematic_characters):
+    if args.problematic_characters:
         problematic_files = find_files_with_problematic_names(args.main_dir, args.directories, config['problematic_characters'])
         ask_before_renaming(problematic_files, config['problematic_characters'], config['replacement_character'])
 
-    if (args.unusual_attributes):
+    if args.unusual_attributes:
         handle_files_with_unusual_attributes(args.main_dir, args.directories, config['suggested_file_permissions'])
 
-    if (args.repeated_names):
+    if args.repeated_names:
         handle_files_with_repeated_names(args.main_dir, args.directories)
 
-    if (args.find_duplicate_content):
+    if args.find_duplicate_content:
         handle_files_with_duplicate_content(args.main_dir, args.directories)
 
-    if (args.move_files_to_main_dir):
-        move_files_to_main_dir(args.main_dir, args.directories)
+    if args.move_files_to_main_dir:
+        transfer_files_to_main_dir(args.main_dir, args.directories, shutil.move)
 
-    if (args.copy_files_to_main_dir):
-        copy_files_to_main_dir(args.main_dir, args.directories)
+    if args.copy_files_to_main_dir:
+        transfer_files_to_main_dir(args.main_dir, args.directories, shutil.copy2)
