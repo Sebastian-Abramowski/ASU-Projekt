@@ -1,5 +1,6 @@
 import json
 import os
+import stat
 from argparse import ArgumentParser
 
 DEFAULT_CONFIG = {
@@ -40,6 +41,47 @@ def find_empty_files(main_dir, directories):
 def find_files_with_problematic_names(main_dir, directories, problematic_characters):
     all_files = get_all_files(main_dir, directories)
     return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
+
+def convert_str_permissions_to_octal(permissions):
+    permission_map = {
+        "r": 4, "w": 2, "x": 1
+    }
+
+    octal_str = ""
+    for i in range(0, len(permissions), 3):
+        part = permissions[i:i+3]
+        octal_str += str(sum(permission_map.get(char, 0) for char in part))
+
+    return int(octal_str, 8)
+
+
+def handle_files_with_unusual_attributes(main_dir, directories, suggested_permissions):
+    octal_suggested_permissions = convert_str_permissions_to_octal(suggested_permissions)
+
+
+    choice = None
+    all_files = get_all_files(main_dir, directories)
+
+    for file in all_files:
+        file_stat = os.stat(file)
+        file_permissions = stat.filemode(file_stat.st_mode)[1:]
+
+        if (file_permissions != suggested_permissions):
+            print(f"File {file} has unusual permissions: {file_permissions}. Suggested permissions are {suggested_permissions}. Do you want to change them? ", end="")
+
+            if choice == 'ay':
+                os.chmod(file, octal_suggested_permissions)
+                print(f"Changed permissions for file {file} to {suggested_permissions} (always yes mode)")
+                continue
+
+            choice = get_user_input()
+            if choice == 'y' or choice == 'ay':
+                os.chmod(file, octal_suggested_permissions)
+                print(f"Changed permissions for file {file} to {suggested_permissions}")
+
+            if choice == 'an':
+                print("Skipping all permission changes")
+                break
 
 def ask_before_deleting(empty_files, what_to_delete: str):
     choice = None
@@ -115,6 +157,7 @@ def parse_arguments():
     parser.add_argument("--empty", action="store_true", help="Search for empty files and suggest deleting them")
     parser.add_argument("--temporary", action="store_true", help="Search for temporary files and suggest deleting them")
     parser.add_argument("--problematic-characters", action="store_true", help="Search for files with problematic characters and suggest renaming them")
+    parser.add_argument("--unusual_attributes", action="store_true", help="Search for files with unusual attributes and suggest changing them")
 
     return parser.parse_args()
 
@@ -127,6 +170,8 @@ if __name__ == "__main__":
     print("Directories: ", args.directories)
     print("Configuration: ", config)
 
+    # TODO: walidacja permissions 9 wyraozwego
+
     if (args.empty):
         empty_files = find_empty_files(args.main_dir, args.directories)
         ask_before_deleting(empty_files, "empty file")
@@ -137,9 +182,10 @@ if __name__ == "__main__":
 
     if (args.problematic_characters):
         problematic_files = find_files_with_problematic_names(args.main_dir, args.directories, config['problematic_characters'])
-        print(problematic_files)
         ask_before_renaming(problematic_files, config['problematic_characters'], config['replacement_character'])
 
+    if (args.unusual_attributes):
+        handle_files_with_unusual_attributes(args.main_dir, args.directories, config['suggested_file_permissions'])
 
 
 
