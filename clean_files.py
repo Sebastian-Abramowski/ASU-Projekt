@@ -158,7 +158,7 @@ def handle_files_with_unusual_attributes(main_dir, directories, suggested_permis
                 continue
 
             choice = get_user_input()
-            if choice == YES or choice == ALWAYS_YES:
+            if choice in [YES, ALWAYS_YES]:
                 os.chmod(file, octal_suggested_permissions)
                 print(f"Changed permissions for file {file} to {suggested_permissions}")
 
@@ -177,7 +177,7 @@ def ask_before_deleting(empty_files, what_to_delete):
         print(f"{what_to_delete.capitalize()} was found at: {empty_file}. Do you want to remove it? ", end="")
 
         choice = get_user_input()
-        if choice == YES or choice == ALWAYS_YES:
+        if choice in [YES, ALWAYS_YES]:
             print(f"Removing file {empty_file}")
             os.remove(empty_file)
 
@@ -204,7 +204,7 @@ def ask_before_renaming(problematic_files, problematic_characters, replacement_c
         print(f"Problematic file found at: {file_path}. Suggest new name is: {new_filename} Do you want to change it? ", end="")
         choice = get_user_input()
 
-        if choice == YES or choice == ALWAYS_YES:
+        if choice in [YES, ALWAYS_YES]:
             os.rename(file_path, new_path)
             print(f"Renamed: {file_path} -> {new_path}")
 

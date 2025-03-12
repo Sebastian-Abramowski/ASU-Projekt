@@ -15,8 +15,6 @@ Skrypt służy do automatycznego porządkowania plików w katalogu głównym X p
 - Zmianę uprawnień plików, jeśli są nietypowe lub niezgodne z konfiguracją
 - Obsługę plików o tej samej nazwie lub tej samej zawartości – możliwość wyboru, który plik zachować (np. nowszy, starszy lub jakiś konkretny)
 
-</br>
-
 ### Ogólny sposób użycia
 
 ```
@@ -29,8 +27,6 @@ python3 ./clean_files.py <katalog_X> <katalog_Y1> [<katalog_Y2> ...] -c <plik_ko
 python3 ./clean_files.py ./X ./Y1 ./Y2 -c ./.clean_files.json --empty --temporary --problematic-characters --unusual-attributes --repeated-names --find-duplicate-content --move-files-to-main-dir
 ```
 
-</br>
-
 ### Dostępne opcje
 
 - `--empty`
@@ -42,11 +38,9 @@ python3 ./clean_files.py ./X ./Y1 ./Y2 -c ./.clean_files.json --empty --temporar
 - `--copy-files-to-main-dir`
 - `--move-files-to-main-dir`
 
-</br>
-
 ### Przykładowy plik konfiguracyjny
 
-Program wczytuje plik konfiguracyjny podany jako argument `-c` podczas wywołania lub korzysta z domyślnej konfiguracji, która jest przedstawiona poniżej:
+Program wczytuje plik konfiguracyjny podany jako argument `-c` podczas wywołania lub korzysta z domyślnej konfiguracji, która jest przedstawiona poniżej
 
 ```json
 {
