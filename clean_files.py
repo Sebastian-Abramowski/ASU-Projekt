@@ -69,7 +69,7 @@ def handle_files_with_duplicate_content(main_dir, directories) -> None:
 
         paths.sort(key=os.path.getmtime)
 
-        print(f"Files with duplicate content (hash: {file_hash}), from oldest to latest:")
+        print(f"Files with duplicate content (hash: {file_hash}) (from oldest to latest):")
         for num, path in enumerate(paths, start=1):
             print(f"{num}. {path} ", "(OLDEST)" if num == 1 else "")
 
@@ -98,7 +98,7 @@ def handle_files_with_repeated_names(main_dir, directories):
 
         paths.sort(key=os.path.getmtime, reverse=True)
 
-        print(f"Repeated files with name (from latest to oldest): {filename}")
+        print(f"Found duplicate filenames (from latest to oldest): {filename}")
         for num, path in enumerate(paths, start=1):
             print(f"{num}. {path} ", "(LATEST)" if num == 1 else "")
 
