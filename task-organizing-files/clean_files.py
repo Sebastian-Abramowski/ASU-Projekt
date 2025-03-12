@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 
 DEFAULT_CONFIG = {
     'suggested_file_permissions': 'rw-r--r--',
-    'problematic_characters': [':', "'", '.', ',', '*', '?', '*', '#', '`', '|', '\\'],
+    'problematic_characters': [';', "'", ',', '*', '?', '*', '#', '`', '|'],
     'replacement_character': '_',
     'temporary_file_extensions': ['.tmp', '.log']
 }
@@ -17,52 +17,79 @@ def load_config(filepath):
         print(f"Configuration file was not found at {filepath}. Using default configuration.")
         return DEFAULT_CONFIG
 
-def find_temporary_files(main_dir, directories, tmp_extensions):
-    temporary_files = []
-    all_directores = [main_dir, *directories]
-
-    for dir in all_directores:
-        for dir_path, _, files in os.walk(dir):
-            for file in files:
-                file_path = os.path.join(dir_path, file)
-
-                if any(file.endswith(tmp_extension) for tmp_extension in tmp_extensions):
-                    temporary_files.append(file_path)
-
-    return temporary_files
-
-
-
-def find_empty_files(main_dir, directories):
-    empty_files = []
+def get_all_files(main_dir, directories):
+    all_files = []
     all_directories = [main_dir, *directories]
 
     for dir in all_directories:
         for dir_path, _, files in os.walk(dir):
             for file in files:
                 file_path = os.path.join(dir_path, file)
+                all_files.append(file_path)
 
-                if os.path.getsize(file_path) == 0:
-                    empty_files.append(file_path)
+    return all_files
 
-    return empty_files
+def find_temporary_files(main_dir, directories, tmp_extensions):
+    files = get_all_files(main_dir, directories)
+    return [file for file in files if any(file.endswith(tmp_extension) for tmp_extension in tmp_extensions)]
+
+def find_empty_files(main_dir, directories):
+    all_files = get_all_files(main_dir, directories)
+    return [file for file in all_files if os.path.getsize(file) == 0]
+
+def find_files_with_problematic_names(main_dir, directories, problematic_characters):
+    all_files = get_all_files(main_dir, directories)
+    return [file for file in all_files if any(character in os.path.basename(file) for character in problematic_characters)]
 
 def ask_before_deleting(empty_files, what_to_delete: str):
-
     choice = None
     for empty_file in empty_files:
-        if choice == 'an':
+        if choice == 'ay':
+            os.remove(empty_file)
+            print(f"Removing file {empty_file} (always yes mode)")
             continue
-        print(f"{what_to_delete.capitalize()} was found at: {empty_file}. Do you want to remove it? ")
+
+        print(f"{what_to_delete.capitalize()} was found at: {empty_file}. Do you want to remove it? ", end="")
 
         if choice == 'ay':
             os.remove(empty_file)
             continue
 
         choice = get_user_input()
-        if choice == 'y':
+        if choice == 'y' or choice == 'ay':
             print(f"Removing file {empty_file}")
             os.remove(empty_file)
+
+        if choice == 'an':
+            print("Skipping all deletions")
+            break
+
+def ask_before_renaming(problematic_files, problematic_characters, replacement_character):
+    choice = None
+    for file_path in problematic_files:
+        directory = os.path.dirname(file_path)
+        old_filename = os.path.basename(file_path)
+
+        new_filename = old_filename
+        for char in problematic_characters:
+            new_filename = new_filename.replace(char, replacement_character)
+        new_path = os.path.join(directory, new_filename)
+
+        if choice == "ay":
+            os.rename(file_path, new_path)
+            print(f"Renamed: {file_path} -> {new_path} (always yes mode)")
+            continue
+
+        print(f"\nProblematic file found at: {file_path}. Suggest new name is: {new_filename} Do you want to change it? ", end="")
+        choice = get_user_input()
+
+        if choice == "y" or choice == "ay":
+            os.rename(file_path, new_path)
+            print(f"Renamed: {file_path} -> {new_path}")
+
+        if choice == "an":
+            print("Skipping all renaming")
+            break
 
 def get_user_input():
     accepted_values = ['y', 'n', 'ay', 'an']
@@ -78,8 +105,6 @@ def get_user_input():
         print("Invalid input. Please enter your choice again. ")
 
 
-
-
 def parse_arguments():
     parser = ArgumentParser(description="Clean files from given directories")
 
@@ -89,6 +114,7 @@ def parse_arguments():
 
     parser.add_argument("--empty", action="store_true", help="Search for empty files and suggest deleting them")
     parser.add_argument("--temporary", action="store_true", help="Search for temporary files and suggest deleting them")
+    parser.add_argument("--problematic-characters", action="store_true", help="Search for files with problematic characters and suggest renaming them")
 
     return parser.parse_args()
 
@@ -108,6 +134,14 @@ if __name__ == "__main__":
     if (args.temporary):
         temporary_files = find_temporary_files(args.main_dir, args.directories, config['temporary_file_extensions'])
         ask_before_deleting(temporary_files, "temporary file")
+
+    if (args.problematic_characters):
+        problematic_files = find_files_with_problematic_names(args.main_dir, args.directories, config['problematic_characters'])
+        print(problematic_files)
+        ask_before_renaming(problematic_files, config['problematic_characters'], config['replacement_character'])
+
+
+
 
 
 

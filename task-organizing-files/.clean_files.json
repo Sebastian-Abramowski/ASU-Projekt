@@ -1,18 +1,6 @@
 {
   "suggested_file_permissions": "rw-r--r--",
-  "problematic_characters": [
-    ":",
-    "'",
-    ".",
-    ",",
-    "*",
-    "?",
-    "*",
-    "#",
-    "`",
-    "|",
-    "\\"
-  ],
+  "problematic_characters": [";", "'", ",", "*", "?", "*", "#", "`", "|"],
   "replacement_character": "_",
   "temporary_file_extensions": [".tmp", ".log"]
 }
