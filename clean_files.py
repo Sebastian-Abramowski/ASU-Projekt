@@ -56,7 +56,7 @@ def get_file_hash(file_path):
         return md5(f.read()).hexdigest()
 
 
-def handle_files_with_duplicate_content(main_dir, directories) -> None:
+def handle_files_with_duplicate_content(main_dir, directories):
     files_content_dict = defaultdict(list)
 
     for file_path in yield_all_files([main_dir, *directories]):
