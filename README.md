@@ -50,3 +50,7 @@ Program wczytuje plik konfiguracyjny podany jako argument `-c` podczas wywołani
   "temporary_file_extensions": [".tmp", ".log"]
 }
 ```
+
+### Uwagi do zadania
+
+Przydałaby się opcja, w której program zadaje mniej pytań - np. `--batch-processing`. W tym trybie, program podejmowałby pewne decyzje automatycznie, ograniczając interaktywność i przyśpieszając jego działanie.
